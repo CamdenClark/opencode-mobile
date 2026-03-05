@@ -120,18 +120,6 @@ export default function SessionsScreen() {
           <ThemedText type="headline" style={styles.title}>
             Sessions
           </ThemedText>
-          <Pressable
-            style={({ pressed }) => [
-              styles.newButton,
-              createSessionMutation.isPending && styles.newButtonDisabled,
-              pressed && styles.newButtonPressed,
-            ]}
-            onPress={handleNewSession}
-            disabled={createSessionMutation.isPending}>
-            <ThemedText style={styles.newButtonText}>
-              {createSessionMutation.isPending ? 'Creating...' : 'New Session'}
-            </ThemedText>
-          </Pressable>
         </View>
         <ScrollView
           style={styles.scrollView}
@@ -141,6 +129,18 @@ export default function SessionsScreen() {
             <SessionItem key={session.id} session={session} borderColor={borderColor} />
           ))}
         </ScrollView>
+        <Pressable
+          style={({ pressed }) => [
+            styles.fab,
+            createSessionMutation.isPending && styles.fabDisabled,
+            pressed && styles.fabPressed,
+          ]}
+          onPress={handleNewSession}
+          disabled={createSessionMutation.isPending}>
+          <Text style={styles.fabText}>
+            {createSessionMutation.isPending ? '...' : '+'}
+          </Text>
+        </Pressable>
       </SafeAreaView>
     </ThemedView>
   );
@@ -157,34 +157,40 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
   },
   title: {
-    flex: 1,
+    textAlign: 'left',
   },
-  newButton: {
+  fab: {
+    position: 'absolute',
+    bottom: Spacing.four,
+    right: Spacing.four,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#007AFF',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.two,
-    borderRadius: 8,
-    minWidth: 100,
+    justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  newButtonPressed: {
+  fabPressed: {
     backgroundColor: '#0051D5',
   },
-  newButtonDisabled: {
+  fabDisabled: {
     backgroundColor: '#999999',
   },
-  newButtonText: {
+  fabText: {
     color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 14,
+    fontSize: 32,
+    fontWeight: '300',
+    lineHeight: 32,
   },
   scrollView: {
     flex: 1,
