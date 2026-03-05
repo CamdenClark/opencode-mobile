@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: Spacing.four,
+    bottom: Spacing.six,
     right: Spacing.four,
     width: 56,
     height: 56,
