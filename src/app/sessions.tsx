@@ -5,7 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
 import { sessionListOptions } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
 import { createClient } from '@/api/client';
@@ -56,7 +56,7 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
 }
 
 export default function SessionsScreen() {
-  const borderColor = useBorderColor();
+  const borderColor = getBorderColor();
 
   const {
     data: sessions,
