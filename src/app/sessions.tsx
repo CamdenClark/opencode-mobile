@@ -1,16 +1,20 @@
-import { StyleSheet, View, FlatList } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useQuery } from '@tanstack/react-query';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useEffect, useState } from 'react';
-import { sessionList, type Session } from '@/api';
-import { createClient } from '@/api/client';
+import { sessionListOptions, sessionListQueryKey, client } from '@/api';
+import { createClient, type Client } from '@/api/client';
+import { createClientConfig, type CreateClientConfig } from '@/api/client.gen';
+import type { Session } from '@/api/types.gen';
 
-const client = createClient({
-  baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
-});
+const opencodeClient = createClient(
+  createClientConfig<Partial<Client>>({
+    baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
+  })
+);
 
 interface SessionItemProps {
   session: Session;
@@ -44,30 +48,19 @@ function SessionItem({ session }: SessionItemProps) {
 }
 
 export default function SessionsScreen() {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: sessions,
+    isLoading,
+    error,
+  } = useQuery({
+    ...sessionListOptions({ client: opencodeClient as any }),
+  });
 
-  useEffect(() => {
-    async function fetchSessions() {
-      try {
-        const response = await sessionList({ client });
-        setSessions(response.data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSessions();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default">Loading sessions...</ThemedText>
+          <Text style={styles.loadingText}>Loading sessions...</Text>
         </SafeAreaView>
       </ThemedView>
     );
@@ -77,9 +70,9 @@ export default function SessionsScreen() {
     return (
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safeArea}>
-          <ThemedText type="default" style={styles.errorText}>
-            Error: {error}
-          </ThemedText>
+          <Text style={styles.errorText}>
+            Error: {error instanceof Error ? error.message : 'Failed to fetch sessions'}
+          </Text>
         </SafeAreaView>
       </ThemedView>
     );
@@ -92,15 +85,13 @@ export default function SessionsScreen() {
           Sessions
         </ThemedText>
         <ThemedText type="small" style={styles.count}>
-          {sessions.length} session{sessions.length !== 1 ? 's' : ''}
+          {sessions?.length ?? 0} session{(sessions?.length ?? 0) !== 1 ? 's' : ''}
         </ThemedText>
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <SessionItem session={item} />}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.listContent}>
+          {sessions?.map((session) => (
+            <SessionItem key={session.id} session={session} />
+          ))}
+        </View>
       </SafeAreaView>
     </ThemedView>
   );
@@ -154,5 +145,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: '#ff6b6b',
+  },
+  loadingText: {
+    fontSize: 16,
   },
 });
