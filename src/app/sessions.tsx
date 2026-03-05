@@ -80,8 +80,9 @@ export default function SessionsScreen() {
   const createSessionMutation = useMutation({
     ...sessionCreateMutation({ client: opencodeClient }),
     onSuccess: () => {
+      const options = sessionListOptions({ client: opencodeClient });
       queryClient.invalidateQueries({
-        queryKey: ['sessionList'],
+        queryKey: options.queryKey,
       });
     },
   });
@@ -122,7 +123,7 @@ export default function SessionsScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <View style={styles.header}>
-          <ThemedText type="headline" style={styles.title}>
+          <ThemedText style={styles.title}>
             Sessions
           </ThemedText>
         </View>
