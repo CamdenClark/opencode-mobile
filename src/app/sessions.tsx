@@ -17,7 +17,7 @@ const config: Config = {
 
 const opencodeClient: Client = createClient(config);
 
-function getBorderColor() {
+function useBorderColor() {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
   return Colors[scheme].border;
