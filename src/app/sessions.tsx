@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
@@ -89,11 +89,14 @@ export default function SessionsScreen() {
         <ThemedText type="small" style={styles.count}>
           {sessionList?.length ?? 0} session{(sessionList?.length ?? 0) !== 1 ? 's' : ''}
         </ThemedText>
-        <View style={styles.listContent}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}>
           {sessionList?.map((session) => (
             <SessionItem key={session.id} session={session} />
           ))}
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
@@ -119,8 +122,12 @@ const styles = StyleSheet.create({
   count: {
     marginBottom: Spacing.three,
   },
+  scrollView: {
+    flex: 1,
+  },
   listContent: {
     gap: Spacing.two,
+    paddingBottom: Spacing.three,
   },
   sessionCard: {
     padding: Spacing.three,
