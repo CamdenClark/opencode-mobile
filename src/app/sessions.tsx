@@ -5,7 +5,7 @@ import { useColorScheme } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { sessionListOptions } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
 import { createClient } from '@/api/client';
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
-    paddingBottom: BottomTabInset,
+    paddingBottom: 0,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
