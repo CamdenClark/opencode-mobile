@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "generate:api": "curl -s http://aphex.tail85c1ab.ts.net:4096/doc > .openapi-temp.json && bunx openapi-ts --input .openapi-temp.json --client fetch --output ./src/api/ && rm .openapi-temp.json"
   },
   "dependencies": {
     "@hey-api/client-fetch": "^0.13.1",
