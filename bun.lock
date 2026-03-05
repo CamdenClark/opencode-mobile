@@ -6,7 +6,7 @@
       "name": "opencode-mobile",
       "dependencies": {
         "@hey-api/client-fetch": "^0.13.1",
-        "@hey-api/openapi-ts": "^0.94.0",
+        "@hey-api/openapi-ts": "0.94.0",
         "@react-navigation/bottom-tabs": "^7.7.3",
         "@react-navigation/elements": "^2.8.1",
         "@react-navigation/native": "^7.1.28",
