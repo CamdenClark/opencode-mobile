@@ -65,7 +65,7 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
 }
 
 export default function SessionsScreen() {
-  const borderColor = getBorderColor();
+  const borderColor = useBorderColor();
   const queryClient = useQueryClient();
 
   const {
