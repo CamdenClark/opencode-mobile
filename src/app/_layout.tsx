@@ -3,8 +3,8 @@ import React from 'react';
 import { useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
 import { QueryProvider } from '@/providers/query-provider';
+import SessionsScreen from '@/app/sessions';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -12,7 +12,7 @@ export default function TabLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <QueryProvider>
         <AnimatedSplashOverlay />
-        <AppTabs />
+        <SessionsScreen />
       </QueryProvider>
     </ThemeProvider>
   );
