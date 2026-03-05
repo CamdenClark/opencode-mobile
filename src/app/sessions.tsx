@@ -93,9 +93,11 @@ export default function SessionsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <ThemedText type="headline" style={styles.title}>
-          Sessions
-        </ThemedText>
+        <View style={styles.header}>
+          <ThemedText type="headline" style={styles.title}>
+            Sessions
+          </ThemedText>
+        </View>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.listContent}
@@ -115,15 +117,17 @@ const styles = StyleSheet.create({
   },
   safeArea: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
   },
+  header: {
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.three,
+  },
   title: {
     textAlign: 'left',
-    marginBottom: Spacing.three,
   },
   scrollView: {
     flex: 1,
@@ -132,7 +136,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   sessionCard: {
-    padding: Spacing.three,
+    padding: Spacing.four,
     gap: Spacing.one,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
