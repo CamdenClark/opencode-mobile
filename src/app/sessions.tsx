@@ -29,28 +29,37 @@ interface SessionItemProps {
 }
 
 function SessionItem({ session, borderColor }: SessionItemProps) {
-  const date = new Date(session.time.created).toLocaleDateString();
-  const time = new Date(session.time.created).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const getRelativeTime = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 60) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+
+    return new Date(timestamp).toLocaleDateString();
+  };
 
   return (
     <ThemedView style={[styles.sessionCard, { borderBottomColor: borderColor }]}>
-      <ThemedText type="subtitle" style={styles.sessionTitle}>
+      <ThemedText type="default" style={styles.sessionTitle} numberOfLines={1}>
         {session.title}
       </ThemedText>
       <View style={styles.sessionMeta}>
-        <ThemedText type="small" style={styles.slug}>
-          {session.slug}
-        </ThemedText>
         <ThemedText type="small" style={styles.sessionTime}>
-          {date} at {time}
+          {getRelativeTime(session.time.created)}
         </ThemedText>
+        {session.directory !== '/' && session.directory && (
+          <ThemedText type="small" style={styles.directory}>
+            {session.directory}
+          </ThemedText>
+        )}
       </View>
-      <ThemedText type="small" style={styles.sessionDetails}>
-        {session.directory}
-      </ThemedText>
     </ThemedView>
   );
 }
@@ -124,7 +133,7 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
-    paddingBottom: Spacing.three,
+    paddingBottom: Spacing.two,
   },
   title: {
     textAlign: 'left',
@@ -136,8 +145,8 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   sessionCard: {
-    padding: Spacing.four,
-    gap: Spacing.one,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.four,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -149,15 +158,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  slug: {
-    fontFamily: 'monospace',
-  },
   sessionTime: {
-    opacity: 0.7,
-  },
-  sessionDetails: {
     opacity: 0.6,
-    marginTop: Spacing.one,
+  },
+  directory: {
+    opacity: 0.5,
   },
   errorText: {
     color: '#ff6b6b',
