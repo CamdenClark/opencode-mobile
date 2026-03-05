@@ -5,16 +5,16 @@ import { useQuery } from '@tanstack/react-query';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { sessionListOptions, sessionListQueryKey, client } from '@/api';
-import { createClient, type Client } from '@/api/client';
-import { createClientConfig, type CreateClientConfig } from '@/api/client.gen';
+import { sessionListOptions } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
+import { createClient } from '@/api/client';
+import type { Client, Config } from '@/api/client/types.gen';
 
-const opencodeClient = createClient(
-  createClientConfig<Partial<Client>>({
-    baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
-  })
-);
+const config: Config = {
+  baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
+};
+
+const opencodeClient: Client = createClient(config);
 
 interface SessionItemProps {
   session: Session;
@@ -53,7 +53,7 @@ export default function SessionsScreen() {
     isLoading,
     error,
   } = useQuery({
-    ...sessionListOptions({ client: opencodeClient as any }),
+    ...sessionListOptions({ client: opencodeClient }),
   });
 
   if (isLoading) {
@@ -78,6 +78,8 @@ export default function SessionsScreen() {
     );
   }
 
+  const sessionList = sessions as Session[] | undefined;
+
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
@@ -85,10 +87,10 @@ export default function SessionsScreen() {
           Sessions
         </ThemedText>
         <ThemedText type="small" style={styles.count}>
-          {sessions?.length ?? 0} session{(sessions?.length ?? 0) !== 1 ? 's' : ''}
+          {sessionList?.length ?? 0} session{(sessionList?.length ?? 0) !== 1 ? 's' : ''}
         </ThemedText>
         <View style={styles.listContent}>
-          {sessions?.map((session) => (
+          {sessionList?.map((session) => (
             <SessionItem key={session.id} session={session} />
           ))}
         </View>
