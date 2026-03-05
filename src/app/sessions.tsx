@@ -1,10 +1,11 @@
 import { StyleSheet, View, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import { useColorScheme } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
 import { sessionListOptions } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
 import { createClient } from '@/api/client';
@@ -16,11 +17,18 @@ const config: Config = {
 
 const opencodeClient: Client = createClient(config);
 
-interface SessionItemProps {
-  session: Session;
+function getBorderColor() {
+  const colorScheme = useColorScheme();
+  const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
+  return Colors[scheme].border;
 }
 
-function SessionItem({ session }: SessionItemProps) {
+interface SessionItemProps {
+  session: Session;
+  borderColor: string;
+}
+
+function SessionItem({ session, borderColor }: SessionItemProps) {
   const date = new Date(session.time.created).toLocaleDateString();
   const time = new Date(session.time.created).toLocaleTimeString([], {
     hour: '2-digit',
@@ -28,7 +36,7 @@ function SessionItem({ session }: SessionItemProps) {
   });
 
   return (
-    <ThemedView style={styles.sessionCard}>
+    <ThemedView style={[styles.sessionCard, { borderBottomColor: borderColor }]}>
       <ThemedText type="subtitle" style={styles.sessionTitle}>
         {session.title}
       </ThemedText>
@@ -48,6 +56,8 @@ function SessionItem({ session }: SessionItemProps) {
 }
 
 export default function SessionsScreen() {
+  const borderColor = useBorderColor();
+
   const {
     data: sessions,
     isLoading,
@@ -83,18 +93,15 @@ export default function SessionsScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
+        <ThemedText type="headline" style={styles.title}>
           Sessions
-        </ThemedText>
-        <ThemedText type="small" style={styles.count}>
-          {sessionList?.length ?? 0} session{(sessionList?.length ?? 0) !== 1 ? 's' : ''}
         </ThemedText>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}>
           {sessionList?.map((session) => (
-            <SessionItem key={session.id} session={session} />
+            <SessionItem key={session.id} session={session} borderColor={borderColor} />
           ))}
         </ScrollView>
       </SafeAreaView>
@@ -109,30 +116,27 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.three,
+    paddingTop: Spacing.three,
+    paddingBottom: BottomTabInset,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
   },
   title: {
     textAlign: 'left',
-    marginBottom: Spacing.one,
-  },
-  count: {
     marginBottom: Spacing.three,
   },
   scrollView: {
     flex: 1,
   },
   listContent: {
-    gap: Spacing.two,
-    paddingBottom: Spacing.three,
+    gap: 0,
   },
   sessionCard: {
     padding: Spacing.three,
-    borderRadius: Spacing.two,
     gap: Spacing.one,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
   },
   sessionTitle: {
     marginBottom: Spacing.one,
