@@ -1,12 +1,12 @@
-import { StyleSheet, View, Text, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useColorScheme } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
-import { sessionListOptions } from '@/api/@tanstack/react-query.gen';
+import { sessionListOptions, sessionCreateMutation } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
@@ -66,6 +66,7 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
 
 export default function SessionsScreen() {
   const borderColor = getBorderColor();
+  const queryClient = useQueryClient();
 
   const {
     data: sessions,
@@ -74,6 +75,19 @@ export default function SessionsScreen() {
   } = useQuery({
     ...sessionListOptions({ client: opencodeClient }),
   });
+
+  const createSessionMutation = useMutation({
+    ...sessionCreateMutation({ client: opencodeClient }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['sessionList'],
+      });
+    },
+  });
+
+  const handleNewSession = () => {
+    createSessionMutation.mutate({ client: opencodeClient } as any);
+  };
 
   if (isLoading) {
     return (
@@ -106,6 +120,18 @@ export default function SessionsScreen() {
           <ThemedText type="headline" style={styles.title}>
             Sessions
           </ThemedText>
+          <Pressable
+            style={({ pressed }) => [
+              styles.newButton,
+              createSessionMutation.isPending && styles.newButtonDisabled,
+              pressed && styles.newButtonPressed,
+            ]}
+            onPress={handleNewSession}
+            disabled={createSessionMutation.isPending}>
+            <ThemedText style={styles.newButtonText}>
+              {createSessionMutation.isPending ? 'Creating...' : 'New Session'}
+            </ThemedText>
+          </Pressable>
         </View>
         <ScrollView
           style={styles.scrollView}
@@ -131,12 +157,34 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
   },
   title: {
-    textAlign: 'left',
+    flex: 1,
+  },
+  newButton: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 8,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  newButtonPressed: {
+    backgroundColor: '#0051D5',
+  },
+  newButtonDisabled: {
+    backgroundColor: '#999999',
+  },
+  newButtonText: {
+    color: '#ffffff',
+    fontWeight: '600',
+    fontSize: 14,
   },
   scrollView: {
     flex: 1,
