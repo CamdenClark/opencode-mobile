@@ -92,7 +92,7 @@ export default function SessionsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <ThemedText type="headline" style={styles.title}>
           Sessions
         </ThemedText>
@@ -117,7 +117,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
-    paddingBottom: 0,
     maxWidth: MaxContentWidth,
     width: '100%',
     alignSelf: 'center',
