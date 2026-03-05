@@ -1,5 +1,6 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useColorScheme } from 'react-native';
 
@@ -67,11 +68,13 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
 export default function SessionsScreen() {
   const borderColor = useBorderColor();
   const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
 
   const {
     data: sessions,
     isLoading,
     error,
+    refetch,
   } = useQuery({
     ...sessionListOptions({ client: opencodeClient }),
   });
@@ -87,6 +90,12 @@ export default function SessionsScreen() {
 
   const handleNewSession = () => {
     createSessionMutation.mutate({ client: opencodeClient } as any);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
   };
 
   if (isLoading) {
@@ -124,7 +133,14 @@ export default function SessionsScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={borderColor}
+            />
+          }>
           {sessionList?.map((session) => (
             <SessionItem key={session.id} session={session} borderColor={borderColor} />
           ))}
