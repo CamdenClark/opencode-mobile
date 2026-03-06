@@ -6,9 +6,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
+import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
 import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation } from '@/api/@tanstack/react-query.gen';
-import type { Message } from '@/api/types.gen';
+import type { Message, Part, ToolPart, ReasoningPart, TextPart } from '@/api/types.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
@@ -21,50 +21,139 @@ const config: Config = {
 
 const opencodeClient: Client = createClient(config);
 
-function useBorderColor() {
+function useColors() {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
-  return Colors[scheme].border;
+  return Colors[scheme];
 }
 
-function useInputColors() {
-  const colorScheme = useColorScheme();
-  const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
-  return {
-    background: Colors[scheme].background,
-    text: Colors[scheme].text,
-    border: Colors[scheme].border,
-  };
+function ToolCallItem({ part }: { part: ToolPart }) {
+  const [expanded, setExpanded] = useState(false);
+  const colors = useColors();
+  const status = part.state.status;
+  const statusIcon = status === 'completed' ? 'checkmark-circle' :
+                     status === 'error' ? 'close-circle' :
+                     status === 'running' ? 'ellipsis-horizontal-circle' : 'time';
+  const statusColor = status === 'completed' ? '#34C759' :
+                      status === 'error' ? '#FF3B30' :
+                      status === 'running' ? '#FF9500' : colors.textSecondary;
+  const title = ('title' in part.state && part.state.title) ? part.state.title : part.tool;
+
+  return (
+    <View style={[styles.toolCall, { backgroundColor: colors.backgroundElement }]}>
+      <Pressable
+        style={styles.toolCallHeader}
+        onPress={() => setExpanded(!expanded)}>
+        <Ionicons name={statusIcon} size={16} color={statusColor} />
+        <ThemedText type="small" style={styles.toolCallName} numberOfLines={1}>
+          {title}
+        </ThemedText>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={14}
+          color={colors.textSecondary}
+        />
+      </Pressable>
+      {expanded && (
+        <View style={styles.toolCallBody}>
+          {part.state.input && Object.keys(part.state.input).length > 0 && (
+            <ThemedText type="small" style={[styles.toolCallContent, { fontFamily: Fonts.mono }]}>
+              {JSON.stringify(part.state.input, null, 2)}
+            </ThemedText>
+          )}
+          {'output' in part.state && part.state.output && (
+            <ThemedText type="small" style={[styles.toolCallContent, { fontFamily: Fonts.mono, marginTop: Spacing.one }]}>
+              {part.state.output.length > 500 ? part.state.output.slice(0, 500) + '...' : part.state.output}
+            </ThemedText>
+          )}
+          {'error' in part.state && part.state.error && (
+            <ThemedText type="small" style={[styles.toolCallContent, { color: '#FF3B30', marginTop: Spacing.one }]}>
+              {part.state.error}
+            </ThemedText>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ThinkingBlock({ part }: { part: ReasoningPart }) {
+  const [expanded, setExpanded] = useState(false);
+  const colors = useColors();
+
+  return (
+    <View style={[styles.thinkingBlock, { borderLeftColor: colors.textSecondary }]}>
+      <Pressable
+        style={styles.thinkingHeader}
+        onPress={() => setExpanded(!expanded)}>
+        <Ionicons name="bulb-outline" size={14} color={colors.textSecondary} />
+        <ThemedText type="small" style={{ color: colors.textSecondary }}>
+          Thinking
+        </ThemedText>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={14}
+          color={colors.textSecondary}
+        />
+      </Pressable>
+      {expanded && (
+        <ThemedText type="small" style={styles.thinkingText}>
+          {part.text}
+        </ThemedText>
+      )}
+    </View>
+  );
 }
 
 interface MessageItemProps {
-  message: { info: Message; parts: any[] };
-  borderColor: string;
+  message: { info: Message; parts: Part[] };
 }
 
-function MessageItem({ message, borderColor }: MessageItemProps) {
-  const formatTime = (timestamp: number): string => {
-    return new Date(timestamp).toLocaleTimeString([], { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
+function MessageItem({ message }: MessageItemProps) {
+  const colors = useColors();
+  const isUser = message.info.role === 'user';
 
-  const displayText = message.parts?.find((p: any) => p.type === 'text')?.text || '';
+  if (isUser) {
+    const displayText = message.parts?.find((p) => p.type === 'text')?.text || '';
+    return (
+      <View style={styles.userMessageRow}>
+        <View style={[styles.userBubble, { backgroundColor: '#007AFF' }]}>
+          <ThemedText style={styles.userBubbleText}>
+            {displayText}
+          </ThemedText>
+        </View>
+      </View>
+    );
+  }
+
+  // Assistant message: render parts sequentially, full width
+  const parts = message.parts || [];
+  const visibleParts = parts.filter((p) =>
+    p.type === 'text' || p.type === 'tool' || p.type === 'reasoning'
+  );
+
+  if (visibleParts.length === 0) return null;
 
   return (
-    <View style={[styles.messageItem, { borderBottomColor: borderColor }]}>
-      <View style={styles.messageHeader}>
-        <ThemedText type="small" style={styles.messageRole}>
-          {message.info.role === 'user' ? 'You' : 'Assistant'}
-        </ThemedText>
-        <ThemedText type="small" style={styles.messageTime}>
-          {formatTime(message.info.time.created)}
-        </ThemedText>
-      </View>
-      <ThemedText style={styles.messageText}>
-        {displayText}
-      </ThemedText>
+    <View style={styles.assistantMessage}>
+      {visibleParts.map((part) => {
+        if (part.type === 'reasoning') {
+          return <ThinkingBlock key={part.id} part={part as ReasoningPart} />;
+        }
+        if (part.type === 'tool') {
+          return <ToolCallItem key={part.id} part={part as ToolPart} />;
+        }
+        if (part.type === 'text') {
+          const text = (part as TextPart).text;
+          if (!text) return null;
+          return (
+            <ThemedText key={part.id} style={styles.assistantText}>
+              {text}
+            </ThemedText>
+          );
+        }
+        return null;
+      })}
     </View>
   );
 }
@@ -72,8 +161,7 @@ function MessageItem({ message, borderColor }: MessageItemProps) {
 export default function SessionScreen() {
   const { id } = useLocalSearchParams();
   const sessionId = id as string;
-  const borderColor = useBorderColor();
-  const inputColors = useInputColors();
+  const colors = useColors();
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
 
@@ -165,10 +253,9 @@ export default function SessionScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled">
             {messages?.map((msg) => (
-              <MessageItem 
-                key={msg.info.id} 
-                message={msg} 
-                borderColor={borderColor} 
+              <MessageItem
+                key={msg.info.id}
+                message={msg}
               />
             ))}
           </ScrollView>
@@ -176,17 +263,17 @@ export default function SessionScreen() {
             <View style={[
               styles.inputWrapper,
               {
-                backgroundColor: inputColors.background,
-                borderColor: inputColors.border,
+                backgroundColor: colors.background,
+                borderColor: colors.border,
               },
             ]}>
               <TextInput
                 style={[
                   styles.input,
-                  { color: inputColors.text },
+                  { color: colors.text },
                 ]}
                 placeholder="Type a message..."
-                placeholderTextColor={inputColors.border}
+                placeholderTextColor={colors.border}
                 value={inputText || ''}
                 onChangeText={setInputText}
                 multiline
@@ -238,29 +325,77 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    gap: 0,
+    paddingVertical: Spacing.two,
+    gap: Spacing.two,
   },
-  messageItem: {
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  messageHeader: {
+  // User bubble
+  userMessageRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.one,
+    justifyContent: 'flex-end',
+    paddingHorizontal: Spacing.four,
   },
-  messageRole: {
+  userBubble: {
+    maxWidth: '80%',
+    borderRadius: 18,
+    borderBottomRightRadius: 4,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  userBubbleText: {
+    color: '#ffffff',
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  // Assistant
+  assistantMessage: {
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.two,
+  },
+  assistantText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  // Tool calls
+  toolCall: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  toolCallHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  toolCallName: {
+    flex: 1,
     fontWeight: '600',
   },
-  messageTime: {
-    opacity: 0.6,
+  toolCallBody: {
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
   },
-  messageText: {
+  toolCallContent: {
+    fontSize: 12,
+    lineHeight: 18,
+    opacity: 0.8,
+  },
+  // Thinking
+  thinkingBlock: {
+    borderLeftWidth: 2,
+    paddingLeft: Spacing.three,
+  },
+  thinkingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  thinkingText: {
+    marginTop: Spacing.one,
     lineHeight: 20,
+    opacity: 0.7,
   },
+  // Input
   inputContainer: {
     paddingHorizontal: Spacing.four,
     paddingBottom: Spacing.four,
