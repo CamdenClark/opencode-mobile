@@ -7,8 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
-import { sessionGetOptions, sessionMessagesOptions, sessionPromptMutation } from '@/api/@tanstack/react-query.gen';
-import type { Message, Session } from '@/api/types.gen';
+import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionStatusOptions } from '@/api/@tanstack/react-query.gen';
+import type { Message, Session, SessionStatus } from '@/api/types.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
@@ -83,30 +83,51 @@ export default function SessionScreen() {
     }),
   });
 
+  const { data: sessionStatuses } = useQuery({
+    ...sessionStatusOptions({ client: opencodeClient }),
+    refetchInterval: 1000,
+  });
+
+  const sessionStatus: SessionStatus | undefined = sessionStatuses?.[sessionId];
+  const isSessionBusy = sessionStatus != null && sessionStatus.type !== 'idle';
+
   const { data: messages, isLoading: messagesLoading } = useQuery({
     ...sessionMessagesOptions({
       client: opencodeClient,
       path: { sessionID: sessionId },
     }),
+    refetchInterval: isSessionBusy ? 1000 : false,
   });
 
   const promptMutation = useMutation({
-    ...sessionPromptMutation({ client: opencodeClient }),
+    ...sessionPromptAsyncMutation({ client: opencodeClient }),
     onSuccess: () => {
-      const options = sessionMessagesOptions({
-        client: opencodeClient,
-        path: { sessionID: sessionId },
-      });
-      queryClient.invalidateQueries({
-        queryKey: options.queryKey,
-      });
       setInputText('');
     },
   });
 
+  const messagesQueryKey = sessionMessagesOptions({
+    client: opencodeClient,
+    path: { sessionID: sessionId },
+  }).queryKey;
+
   const handleSubmit = () => {
     const text = inputText || '';
     if (text.trim() && !promptMutation.isPending) {
+      const now = Date.now();
+      const tempId = `temp-${now}`;
+      queryClient.setQueryData(messagesQueryKey, (old: any[] | undefined) => [
+        ...(old || []),
+        {
+          info: {
+            id: tempId,
+            sessionID: sessionId,
+            role: 'user',
+            time: { created: now },
+          },
+          parts: [{ id: `${tempId}-part`, type: 'text', text: text.trim() }],
+        },
+      ]);
       promptMutation.mutate({
         client: opencodeClient,
         path: { sessionID: sessionId },
