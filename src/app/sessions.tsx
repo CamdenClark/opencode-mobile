@@ -10,6 +10,7 @@ import { sessionListOptions, sessionCreateMutation } from '@/api/@tanstack/react
 import type { Session } from '@/api/types.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
+import { router } from 'expo-router';
 
 const config: Config = {
   baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
@@ -46,7 +47,14 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
   };
 
   return (
-    <ThemedView style={[styles.sessionCard, { borderBottomColor: borderColor }]}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.sessionCard,
+        { borderBottomColor: borderColor },
+        pressed && styles.sessionCardPressed,
+      ]}
+      onPress={() => router.push(`/session/${session.id}`)}
+    >
       <ThemedText type="default" style={styles.sessionTitle} numberOfLines={1}>
         {session.title}
       </ThemedText>
@@ -60,7 +68,7 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
           </ThemedText>
         )}
       </View>
-    </ThemedView>
+    </Pressable>
   );
 }
 
@@ -88,7 +96,11 @@ export default function SessionsScreen() {
   });
 
   const handleNewSession = () => {
-    createSessionMutation.mutate({ client: opencodeClient } as any);
+    createSessionMutation.mutate({ client: opencodeClient } as any, {
+      onSuccess: (data) => {
+        router.push(`/session/${data.id}`);
+      },
+    });
   };
 
   const onRefresh = async () => {
@@ -216,6 +228,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.four,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
+  },
+  sessionCardPressed: {
+    opacity: 0.7,
   },
   sessionTitle: {
     marginBottom: Spacing.one,
