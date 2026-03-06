@@ -7,12 +7,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
-import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionStatusOptions } from '@/api/@tanstack/react-query.gen';
-import type { Message, Session, SessionStatus } from '@/api/types.gen';
+import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation } from '@/api/@tanstack/react-query.gen';
+import type { Message } from '@/api/types.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
 import { useState } from 'react';
+import { useStreamingMessages } from '@/hooks/use-streaming-messages';
 
 const config: Config = {
   baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
@@ -77,27 +78,16 @@ export default function SessionScreen() {
   const [inputText, setInputText] = useState('');
 
   const { data: session, isLoading: sessionLoading } = useQuery({
-    ...sessionGetOptions({ 
-      client: opencodeClient, 
-      path: { sessionID: sessionId } 
-    }),
-  });
-
-  const { data: sessionStatuses } = useQuery({
-    ...sessionStatusOptions({ client: opencodeClient }),
-    refetchInterval: 1000,
-  });
-
-  const sessionStatus: SessionStatus | undefined = sessionStatuses?.[sessionId];
-  const isSessionBusy = sessionStatus != null && sessionStatus.type !== 'idle';
-
-  const { data: messages, isLoading: messagesLoading } = useQuery({
-    ...sessionMessagesOptions({
+    ...sessionGetOptions({
       client: opencodeClient,
-      path: { sessionID: sessionId },
+      path: { sessionID: sessionId }
     }),
-    refetchInterval: isSessionBusy ? 1000 : false,
   });
+
+  const { messages, isLoading: messagesLoading, sessionStatus } = useStreamingMessages(
+    opencodeClient,
+    sessionId
+  );
 
   const promptMutation = useMutation({
     ...sessionPromptAsyncMutation({ client: opencodeClient }),
