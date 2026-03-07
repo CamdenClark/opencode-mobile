@@ -8,7 +8,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
 import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation } from '@/api/@tanstack/react-query.gen';
-import type { Message, Part, ToolPart, ReasoningPart, TextPart } from '@/api/types.gen';
+import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo } from '@/api/types.gen';
+import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
@@ -77,6 +78,116 @@ function ToolCallItem({ part }: { part: ToolPart }) {
   );
 }
 
+function QuestionItem({ part, client }: { part: ToolPart; client: Client }) {
+  const colors = useColors();
+  const questions: QuestionInfo[] = (part.state.input as any)?.questions || [];
+  // Track selected options per question index
+  const [selections, setSelections] = useState<Record<number, Set<string>>>({});
+  const [customInputs, setCustomInputs] = useState<Record<number, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const toggleOption = (qIdx: number, label: string, multiple?: boolean) => {
+    setSelections((prev) => {
+      const current = prev[qIdx] || new Set<string>();
+      const next = new Set(current);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        if (!multiple) next.clear();
+        next.add(label);
+      }
+      return { ...prev, [qIdx]: next };
+    });
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    try {
+      // Build answers array: each answer is an array of selected labels
+      const answers = questions.map((q, idx) => {
+        const selected = Array.from(selections[idx] || []);
+        const custom = customInputs[idx]?.trim();
+        if (custom) selected.push(custom);
+        return selected;
+      });
+
+      // Fetch pending questions to find the requestID matching this tool call
+      const { data: pending } = await questionList({ client });
+      const match = pending?.find(
+        (req) => req.tool?.callID === part.callID
+      );
+
+      if (match) {
+        await questionReply({
+          client,
+          path: { requestID: match.id },
+          body: { answers },
+        });
+      } else {
+        console.warn('No matching question request found for callID:', part.callID);
+      }
+    } catch (err) {
+      console.error('Failed to reply to question:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (questions.length === 0) return null;
+
+  return (
+    <View style={[styles.questionContainer, { backgroundColor: colors.backgroundElement, borderColor: '#FF9500' }]}>
+      {questions.map((q, qIdx) => (
+        <View key={qIdx} style={styles.questionBlock}>
+          <ThemedText style={styles.questionHeader}>{q.header}</ThemedText>
+          <ThemedText style={styles.questionText}>{q.question}</ThemedText>
+          <View style={styles.optionsContainer}>
+            {q.options.map((opt) => {
+              const selected = selections[qIdx]?.has(opt.label);
+              return (
+                <Pressable
+                  key={opt.label}
+                  style={[
+                    styles.optionButton,
+                    { borderColor: selected ? '#007AFF' : colors.border },
+                    selected && { backgroundColor: '#007AFF20' },
+                  ]}
+                  onPress={() => toggleOption(qIdx, opt.label, q.multiple)}>
+                  <ThemedText style={[styles.optionLabel, selected && { color: '#007AFF' }]}>
+                    {opt.label}
+                  </ThemedText>
+                  {opt.description ? (
+                    <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                      {opt.description}
+                    </ThemedText>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </View>
+          {q.custom !== false && (
+            <TextInput
+              style={[styles.customInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder="Type a custom answer..."
+              placeholderTextColor={colors.border}
+              value={customInputs[qIdx] || ''}
+              onChangeText={(text) => setCustomInputs((prev) => ({ ...prev, [qIdx]: text }))}
+            />
+          )}
+        </View>
+      ))}
+      <Pressable
+        style={[styles.submitButton, submitting && { opacity: 0.5 }]}
+        onPress={handleSubmit}
+        disabled={submitting}>
+        <ThemedText style={styles.submitButtonText}>
+          {submitting ? 'Submitting...' : 'Submit'}
+        </ThemedText>
+      </Pressable>
+    </View>
+  );
+}
+
 function ThinkingBlock({ part }: { part: ReasoningPart }) {
   const [expanded, setExpanded] = useState(false);
   const colors = useColors();
@@ -107,9 +218,10 @@ function ThinkingBlock({ part }: { part: ReasoningPart }) {
 
 interface MessageItemProps {
   message: { info: Message; parts: Part[] };
+  client: Client;
 }
 
-function MessageItem({ message }: MessageItemProps) {
+function MessageItem({ message, client }: MessageItemProps) {
   const colors = useColors();
   const isUser = message.info.role === 'user';
 
@@ -141,7 +253,11 @@ function MessageItem({ message }: MessageItemProps) {
           return <ThinkingBlock key={part.id} part={part as ReasoningPart} />;
         }
         if (part.type === 'tool') {
-          return <ToolCallItem key={part.id} part={part as ToolPart} />;
+          const toolPart = part as ToolPart;
+          if (toolPart.tool === 'question' && (toolPart.state.status === 'pending' || toolPart.state.status === 'running')) {
+            return <QuestionItem key={part.id} part={toolPart} client={client} />;
+          }
+          return <ToolCallItem key={part.id} part={toolPart} />;
         }
         if (part.type === 'text') {
           const text = (part as TextPart).text;
@@ -172,7 +288,7 @@ export default function SessionScreen() {
     }),
   });
 
-  const { messages, isLoading: messagesLoading, sessionStatus } = useStreamingMessages(
+  const { messages, isLoading: messagesLoading, sessionStatus, statusQueryKey } = useStreamingMessages(
     opencodeClient,
     sessionId
   );
@@ -181,6 +297,10 @@ export default function SessionScreen() {
     ...sessionPromptAsyncMutation({ client: opencodeClient }),
     onSuccess: () => {
       setInputText('');
+      queryClient.invalidateQueries({ queryKey: statusQueryKey });
+    },
+    onError: (err) => {
+      console.error('[Prompt] error:', err);
     },
   });
 
@@ -256,6 +376,7 @@ export default function SessionScreen() {
               <MessageItem
                 key={msg.info.id}
                 message={msg}
+                client={opencodeClient}
               />
             ))}
           </ScrollView>
@@ -438,5 +559,56 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  // Question
+  questionContainer: {
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  questionBlock: {
+    gap: Spacing.two,
+  },
+  questionHeader: {
+    fontSize: 14,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  questionText: {
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  optionsContainer: {
+    gap: Spacing.one,
+  },
+  optionButton: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+  },
+  optionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  customInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    fontSize: 15,
+  },
+  submitButton: {
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
