@@ -13,8 +13,9 @@ import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStreamingMessages } from '@/hooks/use-streaming-messages';
+import Markdown from 'react-native-marked';
 
 const config: Config = {
   baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
@@ -26,6 +27,88 @@ function useColors() {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
   return Colors[scheme];
+}
+
+function useMarkdownStyles() {
+  const colors = useColors();
+  return useMemo(() => ({
+    styles: {
+      text: {
+        color: colors.text,
+        fontSize: 16,
+        lineHeight: 22,
+      },
+      h1: {
+        color: colors.text,
+        fontSize: 24,
+        fontWeight: 'bold' as const,
+      },
+      h2: {
+        color: colors.text,
+        fontSize: 20,
+        fontWeight: 'bold' as const,
+      },
+      h3: {
+        color: colors.text,
+        fontSize: 18,
+        fontWeight: 'bold' as const,
+      },
+      paragraph: {
+        marginTop: 0,
+        marginBottom: Spacing.two,
+      },
+      codespan: {
+        backgroundColor: colors.backgroundElement,
+        color: colors.text,
+        fontFamily: Fonts.mono,
+        fontSize: 14,
+      },
+      code: {
+        backgroundColor: colors.backgroundElement,
+        borderRadius: 8,
+        padding: Spacing.three,
+        marginVertical: Spacing.two,
+      },
+      blockquote: {
+        backgroundColor: 'transparent',
+        borderLeftWidth: 3,
+        borderLeftColor: colors.border,
+        paddingLeft: Spacing.three,
+        marginVertical: Spacing.two,
+      },
+      link: {
+        color: '#007AFF',
+      },
+      li: {
+        color: colors.text,
+        fontSize: 16,
+        lineHeight: 22,
+      },
+      list: {
+        marginVertical: Spacing.one,
+      },
+      strong: {
+        fontWeight: 'bold' as const,
+      },
+      em: {
+        fontStyle: 'italic' as const,
+      },
+      hr: {
+        backgroundColor: colors.border,
+        height: 1,
+        marginVertical: Spacing.three,
+      },
+    },
+    theme: {
+      colors: {
+        background: colors.background,
+        code: colors.backgroundElement,
+        link: '#007AFF',
+        text: colors.text,
+        border: colors.border,
+      },
+    },
+  }), [colors]);
 }
 
 function ToolCallItem({ part }: { part: ToolPart }) {
@@ -223,6 +306,7 @@ interface MessageItemProps {
 
 function MessageItem({ message, client }: MessageItemProps) {
   const colors = useColors();
+  const markdownStyles = useMarkdownStyles();
   const isUser = message.info.role === 'user';
 
   if (isUser) {
@@ -263,9 +347,13 @@ function MessageItem({ message, client }: MessageItemProps) {
           const text = (part as TextPart).text;
           if (!text) return null;
           return (
-            <ThemedText key={part.id} style={styles.assistantText}>
-              {text}
-            </ThemedText>
+            <Markdown
+              key={part.id}
+              value={text}
+              flatListProps={{ scrollEnabled: false }}
+              styles={markdownStyles.styles}
+              theme={markdownStyles.theme}
+            />
           );
         }
         return null;
