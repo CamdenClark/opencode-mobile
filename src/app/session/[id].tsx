@@ -16,6 +16,7 @@ import { useColorScheme } from 'react-native';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStreamingMessages } from '@/hooks/use-streaming-messages';
 import Markdown from 'react-native-marked';
+import { AgentSelector } from '@/components/agent-selector';
 
 const config: Config = {
   baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
@@ -368,6 +369,7 @@ export default function SessionScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     ...sessionGetOptions({
@@ -421,6 +423,7 @@ export default function SessionScreen() {
         path: { sessionID: sessionId },
         body: {
           parts: [{ type: 'text', text: text.trim() }],
+          ...(selectedAgent && { agent: selectedAgent }),
         },
       } as any);
     }
@@ -524,20 +527,23 @@ export default function SessionScreen() {
                 multiline
                 onSubmitEditing={handleSubmit}
               />
-              <Pressable
-                style={({ pressed }) => [
-                  styles.sendButton,
-                  pressed && styles.sendButtonPressed,
-                  !canSubmit && styles.sendButtonDisabled,
-                ]}
-                onPress={handleSubmit}
-                disabled={!canSubmit}>
-                <Ionicons 
-                  name="send" 
-                  size={20} 
-                  color={canSubmit ? '#007AFF' : '#999999'} 
-                />
-              </Pressable>
+              <View style={styles.inputBottomRow}>
+                <AgentSelector value={selectedAgent} onChange={setSelectedAgent} />
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.sendButton,
+                    pressed && styles.sendButtonPressed,
+                    !canSubmit && styles.sendButtonDisabled,
+                  ]}
+                  onPress={handleSubmit}
+                  disabled={!canSubmit}>
+                  <Ionicons
+                    name="send"
+                    size={20}
+                    color={canSubmit ? '#007AFF' : '#999999'}
+                  />
+                </Pressable>
+              </View>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -647,24 +653,25 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.two,
   },
   inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
     borderWidth: 1,
     borderRadius: 24,
     paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.one,
+    paddingTop: Spacing.one,
+    paddingBottom: Spacing.one,
   },
   input: {
-    flex: 1,
     fontSize: 16,
     maxHeight: 120,
     minHeight: 36,
     paddingVertical: Spacing.two,
-    marginVertical: Spacing.one,
+  },
+  inputBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingBottom: Spacing.one,
   },
   sendButton: {
-    marginLeft: Spacing.two,
-    marginTop: Spacing.one,
     width: 36,
     height: 36,
     justifyContent: 'center',

@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemedView } from '@/components/themed-view';
+import { ProviderPrefetch } from '@/components/provider-prefetch';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -16,6 +17,7 @@ export default function TabLayout() {
       <AnimatedSplashOverlay />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <QueryProvider>
+          <ProviderPrefetch />
           <ThemedView style={{ flex: 1 }}>
             <Stack 
               screenOptions={{ 
