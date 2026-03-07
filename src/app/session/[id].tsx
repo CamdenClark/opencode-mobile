@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -13,7 +13,7 @@ import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
 import { createClient } from '@/api/client';
 import type { Client, Config } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStreamingMessages } from '@/hooks/use-streaming-messages';
 import Markdown from 'react-native-marked';
 
@@ -414,6 +414,8 @@ export default function SessionScreen() {
           parts: [{ id: `${tempId}-part`, type: 'text', text: text.trim() }],
         },
       ]);
+      isNearBottomRef.current = true;
+      setTimeout(scrollToBottom, 50);
       promptMutation.mutate({
         client: opencodeClient,
         path: { sessionID: sessionId },
@@ -423,6 +425,27 @@ export default function SessionScreen() {
       } as any);
     }
   };
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const isNearBottomRef = useRef(true);
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
+    isNearBottomRef.current = distanceFromBottom < 100;
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
+  // Auto-scroll when messages change, but only if user is near bottom
+  useEffect(() => {
+    if (isNearBottomRef.current) {
+      // Small delay to let layout settle after new content renders
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [messages, scrollToBottom]);
 
   const canSubmit = (inputText || '').trim().length > 0 && !promptMutation.isPending;
 
@@ -455,11 +478,14 @@ export default function SessionScreen() {
               {session?.title || 'Session'}
             </ThemedText>
           </View>
-          <ScrollView 
+          <ScrollView
+            ref={scrollViewRef}
             style={styles.scrollView}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled">
+            keyboardShouldPersistTaps="handled"
+            onScroll={onScroll}
+            scrollEventThrottle={16}>
             {messages?.map((msg) => (
               <MessageItem
                 key={msg.info.id}
