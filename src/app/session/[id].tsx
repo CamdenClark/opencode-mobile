@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
@@ -447,6 +447,16 @@ export default function SessionScreen() {
     }
   }, [messages, scrollToBottom]);
 
+  // Scroll to bottom when keyboard opens
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidShow', () => {
+      if (isNearBottomRef.current) {
+        setTimeout(scrollToBottom, 100);
+      }
+    });
+    return () => sub.remove();
+  }, [scrollToBottom]);
+
   const canSubmit = (inputText || '').trim().length > 0 && !promptMutation.isPending;
 
   if (sessionLoading || messagesLoading) {
@@ -468,7 +478,7 @@ export default function SessionScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 20}
@@ -638,7 +648,7 @@ const styles = StyleSheet.create({
   },
   inputWrapper: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     borderWidth: 1,
     borderRadius: 24,
     paddingHorizontal: Spacing.three,
@@ -654,6 +664,7 @@ const styles = StyleSheet.create({
   },
   sendButton: {
     marginLeft: Spacing.two,
+    marginTop: Spacing.one,
     width: 36,
     height: 36,
     justifyContent: 'center',
