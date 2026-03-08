@@ -1,7 +1,7 @@
 import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ThemedText } from '@/components/themed-text';
@@ -367,6 +367,7 @@ export default function SessionScreen() {
   const { id } = useLocalSearchParams();
   const sessionId = id as string;
   const colors = useColors();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
   const [inputMode, setInputMode] = useState<'chat' | 'shell'>('chat');
@@ -525,7 +526,10 @@ export default function SessionScreen() {
           keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 20}
           style={{ flex: 1 }}>
           <View style={styles.header}>
-            <ThemedText style={styles.title}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color={colors.text} />
+            </Pressable>
+            <ThemedText style={styles.title} numberOfLines={1}>
               {session?.title || 'Session'}
             </ThemedText>
           </View>
@@ -631,14 +635,21 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: {
-    paddingHorizontal: Spacing.four,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.two,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
   },
+  backButton: {
+    padding: Spacing.one,
+    marginRight: Spacing.one,
+  },
   title: {
     textAlign: 'left',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
   },
   scrollView: {
     flex: 1,
