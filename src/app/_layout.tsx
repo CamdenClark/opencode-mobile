@@ -9,7 +9,7 @@ import { QueryProvider } from '@/providers/query-provider';
 import { ThemedView } from '@/components/themed-view';
 import { ProviderPrefetch } from '@/components/provider-prefetch';
 
-export default function TabLayout() {
+export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <>
@@ -26,8 +26,7 @@ export default function TabLayout() {
                 animationDurationInMs: 200,
                 contentStyle: { backgroundColor: 'transparent' },
               }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="sessions" />
+              <Stack.Screen name="index" />
               <Stack.Screen name="session/[id]" />
             </Stack>
           </ThemedView>
