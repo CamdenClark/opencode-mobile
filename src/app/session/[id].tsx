@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
-import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionShellMutation } from '@/api/@tanstack/react-query.gen';
+import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionShellMutation, sessionAbortMutation } from '@/api/@tanstack/react-query.gen';
 import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo } from '@/api/types.gen';
 import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
 import { createClient } from '@/api/client';
@@ -17,6 +17,7 @@ import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStreamingMessages } from '@/hooks/use-streaming-messages';
 import Markdown from 'react-native-marked';
 import { AgentSelector } from '@/components/agent-selector';
+import { LoadingIndicator } from '@/components/loading-indicator';
 
 const config: Config = {
   baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
@@ -410,6 +411,15 @@ export default function SessionScreen() {
   });
 
 
+  const abortMutation = useMutation({
+    ...sessionAbortMutation({ client: opencodeClient }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: statusQueryKey });
+    },
+  });
+
+  const isSessionBusy = sessionStatus.type !== 'idle';
+
   const messagesQueryKey = sessionMessagesOptions({
     client: opencodeClient,
     path: { sessionID: sessionId },
@@ -550,6 +560,19 @@ export default function SessionScreen() {
             ))}
           </ScrollView>
           <View style={styles.inputContainer}>
+            {isSessionBusy && (
+              <View style={[styles.loadingBar, { backgroundColor: colors.backgroundElement }]}>
+                <LoadingIndicator color="#007AFF" />
+                <Pressable
+                  style={styles.stopButton}
+                  onPress={() => abortMutation.mutate({
+                    client: opencodeClient,
+                    path: { sessionID: sessionId },
+                  } as any)}>
+                  <Ionicons name="stop-circle" size={24} color="#FF3B30" />
+                </Pressable>
+              </View>
+            )}
             <View style={[
               styles.inputWrapper,
               {
@@ -787,6 +810,18 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
+  },
+  loadingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    borderRadius: 16,
+    marginBottom: Spacing.two,
+  },
+  stopButton: {
+    padding: Spacing.one,
   },
   loadingText: {
     fontSize: 16,
