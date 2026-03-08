@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
-import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation } from '@/api/@tanstack/react-query.gen';
+import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionShellMutation } from '@/api/@tanstack/react-query.gen';
 import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo } from '@/api/types.gen';
 import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
 import { createClient } from '@/api/client';
@@ -369,6 +369,7 @@ export default function SessionScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
+  const [inputMode, setInputMode] = useState<'chat' | 'shell'>('chat');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
   const { data: session, isLoading: sessionLoading } = useQuery({
@@ -387,6 +388,7 @@ export default function SessionScreen() {
     ...sessionPromptAsyncMutation({ client: opencodeClient }),
     onSuccess: () => {
       setInputText('');
+      setInputMode('chat');
       queryClient.invalidateQueries({ queryKey: statusQueryKey });
     },
     onError: (err) => {
@@ -394,35 +396,71 @@ export default function SessionScreen() {
     },
   });
 
+  const shellMutation = useMutation({
+    ...sessionShellMutation({ client: opencodeClient }),
+    onSuccess: () => {
+      setInputText('');
+      setInputMode('chat');
+      queryClient.invalidateQueries({ queryKey: statusQueryKey });
+    },
+    onError: (err) => {
+      console.error('[Shell] error:', err);
+    },
+  });
+
+
   const messagesQueryKey = sessionMessagesOptions({
     client: opencodeClient,
     path: { sessionID: sessionId },
   }).queryKey;
 
+  const handleInputChange = (text: string) => {
+    setInputText(text);
+    if (text.startsWith('!') && inputMode === 'chat') {
+      setInputMode('shell');
+      setInputText(text.slice(1));
+    }
+  };
+
+  const isSubmitting = promptMutation.isPending || shellMutation.isPending;
+
   const handleSubmit = () => {
-    const text = inputText || '';
-    if (text.trim() && !promptMutation.isPending) {
-      const now = Date.now();
-      const tempId = `temp-${now}`;
-      queryClient.setQueryData(messagesQueryKey, (old: any[] | undefined) => [
-        ...(old || []),
-        {
-          info: {
-            id: tempId,
-            sessionID: sessionId,
-            role: 'user',
-            time: { created: now },
-          },
-          parts: [{ id: `${tempId}-part`, type: 'text', text: text.trim() }],
+    const text = (inputText || '').trim();
+    if (!text || isSubmitting) return;
+
+    const now = Date.now();
+    const tempId = `temp-${now}`;
+    const displayText = inputMode === 'shell' ? `$ ${text}` : text;
+    queryClient.setQueryData(messagesQueryKey, (old: any[] | undefined) => [
+      ...(old || []),
+      {
+        info: {
+          id: tempId,
+          sessionID: sessionId,
+          role: 'user',
+          time: { created: now },
         },
-      ]);
-      isNearBottomRef.current = true;
-      setTimeout(scrollToBottom, 50);
+        parts: [{ id: `${tempId}-part`, type: 'text', text: displayText }],
+      },
+    ]);
+    isNearBottomRef.current = true;
+    setTimeout(scrollToBottom, 50);
+
+    if (inputMode === 'shell') {
+      shellMutation.mutate({
+        client: opencodeClient,
+        path: { sessionID: sessionId },
+        body: {
+          command: text,
+          agent: selectedAgent || 'build',
+        },
+      } as any);
+    } else {
       promptMutation.mutate({
         client: opencodeClient,
         path: { sessionID: sessionId },
         body: {
-          parts: [{ type: 'text', text: text.trim() }],
+          parts: [{ type: 'text', text }],
           ...(selectedAgent && { agent: selectedAgent }),
         },
       } as any);
@@ -460,7 +498,7 @@ export default function SessionScreen() {
     return () => sub.remove();
   }, [scrollToBottom]);
 
-  const canSubmit = (inputText || '').trim().length > 0 && !promptMutation.isPending;
+  const canSubmit = (inputText || '').trim().length > 0 && !isSubmitting;
 
   if (sessionLoading || messagesLoading) {
     return (
@@ -520,29 +558,59 @@ export default function SessionScreen() {
                   styles.input,
                   { color: colors.text },
                 ]}
-                placeholder="Type a message..."
+                placeholder={inputMode === 'shell' ? "Enter shell command..." : "Type a message..."}
                 placeholderTextColor={colors.border}
                 value={inputText || ''}
-                onChangeText={setInputText}
+                onChangeText={handleInputChange}
                 multiline
                 onSubmitEditing={handleSubmit}
               />
               <View style={styles.inputBottomRow}>
-                <AgentSelector value={selectedAgent} onChange={setSelectedAgent} />
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.sendButton,
-                    pressed && styles.sendButtonPressed,
-                    !canSubmit && styles.sendButtonDisabled,
-                  ]}
-                  onPress={handleSubmit}
-                  disabled={!canSubmit}>
-                  <Ionicons
-                    name="send"
-                    size={20}
-                    color={canSubmit ? '#007AFF' : '#999999'}
-                  />
-                </Pressable>
+                <View style={styles.inputBottomLeft}>
+                  <AgentSelector value={selectedAgent} onChange={setSelectedAgent} />
+                </View>
+                <View style={styles.inputBottomRight}>
+                  <View style={[styles.modeSwitch, { backgroundColor: colors.backgroundElement }]}>
+                    <Pressable
+                      style={[
+                        styles.modeSwitchOption,
+                        inputMode === 'chat' && styles.modeSwitchOptionActive,
+                      ]}
+                      onPress={() => setInputMode('chat')}>
+                      <Ionicons
+                        name="chatbubble"
+                        size={16}
+                        color={inputMode === 'chat' ? '#007AFF' : colors.textSecondary}
+                      />
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.modeSwitchOption,
+                        inputMode === 'shell' && styles.modeSwitchOptionActive,
+                      ]}
+                      onPress={() => setInputMode('shell')}>
+                      <Ionicons
+                        name="terminal"
+                        size={16}
+                        color={inputMode === 'shell' ? '#007AFF' : colors.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.sendButton,
+                      pressed && styles.sendButtonPressed,
+                      !canSubmit && styles.sendButtonDisabled,
+                    ]}
+                    onPress={handleSubmit}
+                    disabled={!canSubmit}>
+                    <Ionicons
+                      name="send"
+                      size={20}
+                      color={canSubmit ? '#007AFF' : '#999999'}
+                    />
+                  </Pressable>
+                </View>
               </View>
             </View>
           </View>
@@ -670,6 +738,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingBottom: Spacing.one,
+  },
+  inputBottomLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  inputBottomRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.one,
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 2,
+  },
+  modeSwitchOption: {
+    width: 32,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  modeSwitchOptionActive: {
+    backgroundColor: 'rgba(0, 122, 255, 0.15)',
   },
   sendButton: {
     width: 36,
