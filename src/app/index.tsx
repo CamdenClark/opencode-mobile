@@ -1,4 +1,4 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Pressable, RefreshControl } from 'react-native';
+import { StyleSheet, View, Text, ScrollView, Pressable, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useColorScheme } from 'react-native';
@@ -8,20 +8,19 @@ import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors } from '@/constants/theme';
 import { sessionListOptions, sessionCreateMutation } from '@/api/@tanstack/react-query.gen';
 import type { Session } from '@/api/types.gen';
-import { createClient } from '@/api/client';
-import type { Client, Config } from '@/api/client/types.gen';
-import { router } from 'expo-router';
+import { router, Redirect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useServerConfig } from '@/contexts/server-config';
 
-const config: Config = {
-  baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
-};
-
-const opencodeClient: Client = createClient(config);
-
-function useBorderColor() {
+function useColors() {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'unspecified' ? 'light' : colorScheme;
-  return Colors[scheme].border;
+  return Colors[scheme];
+}
+
+function useBorderColor() {
+  const colors = useColors();
+  return colors.border;
 }
 
 interface SessionItemProps {
@@ -74,7 +73,9 @@ function SessionItem({ session, borderColor }: SessionItemProps) {
 
 export default function SessionsScreen() {
   const borderColor = useBorderColor();
+  const colors = useColors();
   const queryClient = useQueryClient();
+  const { client, isLoading: configLoading } = useServerConfig();
 
   const {
     data: sessions,
@@ -82,13 +83,14 @@ export default function SessionsScreen() {
     error,
     refetch,
   } = useQuery({
-    ...sessionListOptions({ client: opencodeClient }),
+    ...sessionListOptions({ client: client! }),
+    enabled: !!client,
   });
 
   const createSessionMutation = useMutation({
-    ...sessionCreateMutation({ client: opencodeClient }),
+    ...sessionCreateMutation({ client: client! }),
     onSuccess: () => {
-      const options = sessionListOptions({ client: opencodeClient });
+      const options = sessionListOptions({ client: client! });
       queryClient.invalidateQueries({
         queryKey: options.queryKey,
       });
@@ -96,7 +98,7 @@ export default function SessionsScreen() {
   });
 
   const handleNewSession = () => {
-    createSessionMutation.mutate({ client: opencodeClient } as any, {
+    createSessionMutation.mutate({ client: client! } as any, {
       onSuccess: (data) => {
         router.push(`/session/${data.id}`);
       },
@@ -106,6 +108,20 @@ export default function SessionsScreen() {
   const onRefresh = async () => {
     await refetch();
   };
+
+  if (configLoading) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <ActivityIndicator style={{ marginTop: 40 }} />
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
+
+  if (!client) {
+    return <Redirect href="/settings" />;
+  }
 
   if (isLoading) {
     return (
@@ -138,6 +154,11 @@ export default function SessionsScreen() {
           <ThemedText style={styles.title}>
             Sessions
           </ThemedText>
+          <Pressable
+            style={({ pressed }) => [styles.settingsButton, pressed && { opacity: 0.6 }]}
+            onPress={() => router.push('/settings')}>
+            <Ionicons name="settings-outline" size={22} color={colors.textSecondary} />
+          </Pressable>
         </View>
         <ScrollView
           style={styles.scrollView}
@@ -182,12 +203,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
   },
   title: {
     textAlign: 'left',
+    flex: 1,
+  },
+  settingsButton: {
+    padding: Spacing.one,
   },
   fab: {
     position: 'absolute',

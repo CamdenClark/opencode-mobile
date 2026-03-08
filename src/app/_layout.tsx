@@ -8,6 +8,7 @@ import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemedView } from '@/components/themed-view';
 import { ProviderPrefetch } from '@/components/provider-prefetch';
+import { ServerConfigProvider } from '@/contexts/server-config';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -16,21 +17,24 @@ export default function RootLayout() {
       <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AnimatedSplashOverlay />
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <QueryProvider>
-          <ProviderPrefetch />
-          <ThemedView style={{ flex: 1 }}>
-            <Stack 
-              screenOptions={{ 
-                headerShown: false,
-                animation: 'fade',
-                animationDurationInMs: 200,
-                contentStyle: { backgroundColor: 'transparent' },
-              }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="session/[id]" />
-            </Stack>
-          </ThemedView>
-        </QueryProvider>
+        <ServerConfigProvider>
+          <QueryProvider>
+            <ProviderPrefetch />
+            <ThemedView style={{ flex: 1 }}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  animation: 'fade',
+                  animationDurationInMs: 200,
+                  contentStyle: { backgroundColor: 'transparent' },
+                }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="session/[id]" />
+                <Stack.Screen name="settings" options={{ animation: 'slide_from_right' }} />
+              </Stack>
+            </ThemedView>
+          </QueryProvider>
+        </ServerConfigProvider>
       </ThemeProvider>
     </>
   );

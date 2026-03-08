@@ -10,20 +10,14 @@ import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
 import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionShellMutation, sessionAbortMutation } from '@/api/@tanstack/react-query.gen';
 import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo } from '@/api/types.gen';
 import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
-import { createClient } from '@/api/client';
-import type { Client, Config } from '@/api/client/types.gen';
+import type { Client } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
 import { useStreamingMessages } from '@/hooks/use-streaming-messages';
 import Markdown from 'react-native-marked';
 import { AgentSelector } from '@/components/agent-selector';
 import { LoadingIndicator } from '@/components/loading-indicator';
-
-const config: Config = {
-  baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
-};
-
-const opencodeClient: Client = createClient(config);
+import { useServerConfig } from '@/contexts/server-config';
 
 function useColors() {
   const colorScheme = useColorScheme();
@@ -373,21 +367,22 @@ export default function SessionScreen() {
   const [inputText, setInputText] = useState('');
   const [inputMode, setInputMode] = useState<'chat' | 'shell'>('chat');
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
+  const { client: opencodeClient } = useServerConfig();
 
   const { data: session, isLoading: sessionLoading } = useQuery({
     ...sessionGetOptions({
-      client: opencodeClient,
+      client: opencodeClient!,
       path: { sessionID: sessionId }
     }),
   });
 
   const { messages, isLoading: messagesLoading, sessionStatus, statusQueryKey } = useStreamingMessages(
-    opencodeClient,
+    opencodeClient!,
     sessionId
   );
 
   const promptMutation = useMutation({
-    ...sessionPromptAsyncMutation({ client: opencodeClient }),
+    ...sessionPromptAsyncMutation({ client: opencodeClient! }),
     onSuccess: () => {
       setInputText('');
       setInputMode('chat');
@@ -399,7 +394,7 @@ export default function SessionScreen() {
   });
 
   const shellMutation = useMutation({
-    ...sessionShellMutation({ client: opencodeClient }),
+    ...sessionShellMutation({ client: opencodeClient! }),
     onSuccess: () => {
       setInputText('');
       setInputMode('chat');
@@ -412,7 +407,7 @@ export default function SessionScreen() {
 
 
   const abortMutation = useMutation({
-    ...sessionAbortMutation({ client: opencodeClient }),
+    ...sessionAbortMutation({ client: opencodeClient! }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: statusQueryKey });
     },
@@ -421,7 +416,7 @@ export default function SessionScreen() {
   const isSessionBusy = sessionStatus.type !== 'idle';
 
   const messagesQueryKey = sessionMessagesOptions({
-    client: opencodeClient,
+    client: opencodeClient!,
     path: { sessionID: sessionId },
   }).queryKey;
 
@@ -459,7 +454,7 @@ export default function SessionScreen() {
 
     if (inputMode === 'shell') {
       shellMutation.mutate({
-        client: opencodeClient,
+        client: opencodeClient!,
         path: { sessionID: sessionId },
         body: {
           command: text,
@@ -468,7 +463,7 @@ export default function SessionScreen() {
       } as any);
     } else {
       promptMutation.mutate({
-        client: opencodeClient,
+        client: opencodeClient!,
         path: { sessionID: sessionId },
         body: {
           parts: [{ type: 'text', text }],
@@ -555,7 +550,7 @@ export default function SessionScreen() {
               <MessageItem
                 key={msg.info.id}
                 message={msg}
-                client={opencodeClient}
+                client={opencodeClient!}
               />
             ))}
           </ScrollView>
@@ -566,7 +561,7 @@ export default function SessionScreen() {
                 <Pressable
                   style={styles.stopButton}
                   onPress={() => abortMutation.mutate({
-                    client: opencodeClient,
+                    client: opencodeClient!,
                     path: { sessionID: sessionId },
                   } as any)}>
                   <Ionicons name="stop-circle" size={24} color="#FF3B30" />

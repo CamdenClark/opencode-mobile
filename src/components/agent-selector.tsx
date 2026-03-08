@@ -4,16 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 
 import { configGetOptions } from '@/api/@tanstack/react-query.gen';
-import { createClient } from '@/api/client';
-import type { Config, Client } from '@/api/client/types.gen';
 import { ThemedText } from '@/components/themed-text';
 import { Colors, Spacing } from '@/constants/theme';
-
-const apiConfig: Config = {
-  baseUrl: 'http://aphex.tail85c1ab.ts.net:4096',
-};
-
-const opencodeClient: Client = createClient(apiConfig);
+import { useServerConfig } from '@/contexts/server-config';
 
 interface AgentSelectorProps {
   value: string | null;
@@ -55,9 +48,11 @@ function getAgentInfo(id: string) {
 export function AgentSelector({ value, onChange }: AgentSelectorProps) {
   const [open, setOpen] = useState(false);
   const colors = useColors();
+  const { client } = useServerConfig();
 
   const { data: config } = useQuery({
-    ...configGetOptions({ client: opencodeClient }),
+    ...configGetOptions({ client: client! }),
+    enabled: !!client,
     staleTime: Infinity,
   });
 
