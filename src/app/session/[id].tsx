@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -105,6 +105,84 @@ function useMarkdownStyles() {
       },
     },
   }), [colors]);
+}
+
+function BashToolCallItem({ part }: { part: ToolPart }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const colors = useColors();
+  const status = part.state.status;
+  const isError = status === 'error';
+  const isRunning = status === 'running';
+
+  const command = (part.state.input as any)?.command || '';
+  const output = ('output' in part.state && part.state.output) ? part.state.output : '';
+  const error = ('error' in part.state && part.state.error) ? part.state.error : '';
+
+  const accentColor = isError ? '#FF3B30' : isRunning ? '#FF9500' : '#34C759';
+
+  return (
+    <>
+      <Pressable
+        style={[styles.bashTool, { backgroundColor: colors.backgroundElement }]}
+        onPress={() => setDrawerOpen(true)}>
+        <View style={styles.bashToolCommandRow}>
+          <Ionicons name="terminal" size={14} color={accentColor} />
+          <ThemedText
+            type="small"
+            style={[styles.bashToolCommand, { fontFamily: Fonts.mono }]}
+            numberOfLines={1}>
+            {command}
+          </ThemedText>
+        </View>
+        {isRunning && <ActivityIndicator size="small" color="#FF9500" />}
+      </Pressable>
+
+      <Modal
+        visible={drawerOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDrawerOpen(false)}>
+        <View style={[styles.bashDrawerContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.bashDrawerHeader, { borderBottomColor: colors.border }]}>
+            <Ionicons name="terminal" size={18} color={accentColor} />
+            <ThemedText style={styles.bashDrawerTitle}>Bash</ThemedText>
+            <Pressable onPress={() => setDrawerOpen(false)} style={styles.bashDrawerClose}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          <View style={[styles.bashDrawerCommandBlock, { backgroundColor: colors.backgroundElement }]}>
+            <ThemedText type="small" style={[styles.bashDrawerCommandLabel, { color: colors.textSecondary }]}>
+              Command
+            </ThemedText>
+            <ThemedText style={[styles.bashDrawerCommandText, { fontFamily: Fonts.mono }]}>
+              {command}
+            </ThemedText>
+          </View>
+
+          {(output || error) ? (
+            <View style={styles.bashDrawerOutputSection}>
+              <ThemedText type="small" style={[styles.bashDrawerOutputLabel, { color: isError ? '#FF3B30' : colors.textSecondary }]}>
+                {isError ? 'Error' : 'Output'}
+              </ThemedText>
+              <ScrollView
+                style={[styles.bashDrawerOutputScroll, { backgroundColor: colors.backgroundElement }]}
+                showsVerticalScrollIndicator>
+                <ThemedText style={[styles.bashDrawerOutputText, { fontFamily: Fonts.mono, color: isError ? '#FF3B30' : colors.text }]}>
+                  {error || output}
+                </ThemedText>
+              </ScrollView>
+            </View>
+          ) : isRunning ? (
+            <View style={styles.bashDrawerRunning}>
+              <ActivityIndicator size="small" color="#FF9500" />
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>Running...</ThemedText>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </>
+  );
 }
 
 function ToolCallItem({ part }: { part: ToolPart }) {
@@ -336,6 +414,9 @@ function MessageItem({ message, client }: MessageItemProps) {
           const toolPart = part as ToolPart;
           if (toolPart.tool === 'question' && (toolPart.state.status === 'pending' || toolPart.state.status === 'running')) {
             return <QuestionItem key={part.id} part={toolPart} client={client} />;
+          }
+          if (toolPart.tool === 'bash') {
+            return <BashToolCallItem key={part.id} part={toolPart} />;
           }
           return <ToolCallItem key={part.id} part={toolPart} />;
         }
@@ -782,6 +863,90 @@ const styles = StyleSheet.create({
   assistantText: {
     fontSize: 16,
     lineHeight: 22,
+  },
+  // Bash tool - inline pill
+  bashTool: {
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.three,
+    paddingVertical: Spacing.two,
+    gap: Spacing.two,
+  },
+  bashToolCommandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    flex: 1,
+  },
+  bashToolCommand: {
+    flex: 1,
+    fontWeight: '500',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  // Bash drawer modal
+  bashDrawerContainer: {
+    flex: 1,
+    paddingTop: Spacing.two,
+  },
+  bashDrawerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.four,
+    paddingVertical: Spacing.three,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.two,
+  },
+  bashDrawerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    flex: 1,
+  },
+  bashDrawerClose: {
+    padding: Spacing.one,
+  },
+  bashDrawerCommandBlock: {
+    margin: Spacing.four,
+    borderRadius: 12,
+    padding: Spacing.three,
+    gap: Spacing.one,
+  },
+  bashDrawerCommandLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bashDrawerCommandText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bashDrawerOutputSection: {
+    flex: 1,
+    paddingHorizontal: Spacing.four,
+    gap: Spacing.two,
+  },
+  bashDrawerOutputLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bashDrawerOutputScroll: {
+    flex: 1,
+    borderRadius: 12,
+    padding: Spacing.three,
+  },
+  bashDrawerOutputText: {
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  bashDrawerRunning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.four,
   },
   // Tool calls
   toolCall: {
