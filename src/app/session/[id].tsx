@@ -194,7 +194,7 @@ function FileToolCallItem({ part }: { part: ToolPart }) {
   const isWrite = part.tool === 'write';
 
   const input = part.state.input as any;
-  const filePath = input?.file_path || '';
+  const filePath = input?.filePath || '';
   const fileName = filePath.split('/').pop() || filePath;
   const writeContent = input?.content || '';
   const output = ('output' in part.state && part.state.output) ? part.state.output : '';
@@ -217,7 +217,7 @@ function FileToolCallItem({ part }: { part: ToolPart }) {
             type="small"
             style={[styles.bashToolCommand, { fontFamily: Fonts.mono }]}
             numberOfLines={1}>
-            {isWrite ? `write ${fileName}` : fileName}
+            {isWrite ? `write ${filePath}` : filePath}
           </ThemedText>
         </View>
         {isRunning && <ActivityIndicator size="small" color="#FF9500" />}
