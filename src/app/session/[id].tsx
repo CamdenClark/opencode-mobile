@@ -1,4 +1,4 @@
-import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard } from 'react-native';
+import { StyleSheet, View, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, NativeSyntheticEvent, NativeScrollEvent, Keyboard, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,8 +8,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MaxContentWidth, Spacing, Colors, Fonts } from '@/constants/theme';
 import { sessionGetOptions, sessionMessagesOptions, sessionPromptAsyncMutation, sessionShellMutation, sessionAbortMutation } from '@/api/@tanstack/react-query.gen';
-import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo } from '@/api/types.gen';
-import { questionList, questionReply, questionReject } from '@/api/sdk.gen';
+import type { Message, Part, ToolPart, ReasoningPart, TextPart, QuestionInfo, PermissionRequest } from '@/api/types.gen';
+import { questionList, questionReply, questionReject, permissionReply } from '@/api/sdk.gen';
 import type { Client } from '@/api/client/types.gen';
 import { useColorScheme } from 'react-native';
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react';
@@ -358,6 +358,75 @@ function MessageItem({ message, client }: MessageItemProps) {
   );
 }
 
+function PermissionOverlay({ permission, client, onReplied }: { permission: PermissionRequest; client: Client; onReplied: () => void }) {
+  const colors = useColors();
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleReply = async (reply: 'once' | 'always' | 'reject') => {
+    setSubmitting(true);
+    onReplied();
+    try {
+      await permissionReply({
+        client,
+        path: { requestID: permission.id },
+        body: { reply },
+      });
+    } catch (err) {
+      console.error('Failed to reply to permission:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const permissionLabel = permission.permission.charAt(0).toUpperCase() + permission.permission.slice(1);
+  const command = permission.metadata?.command as string | undefined;
+
+  return (
+    <View style={[styles.permissionSheet, { backgroundColor: colors.backgroundElement }]}>
+      <ThemedText style={styles.permissionHeader}>{permissionLabel} Permission</ThemedText>
+
+      {permission.patterns.length > 0 && (
+        <View style={[styles.permissionPatterns, { backgroundColor: colors.background }]}>
+          {permission.patterns.map((pattern, idx) => (
+            <ThemedText key={idx} style={[styles.permissionPatternText, { color: colors.textSecondary }]}>
+              {pattern}
+            </ThemedText>
+          ))}
+        </View>
+      )}
+
+      {command && (
+        <View style={[styles.permissionPatterns, { backgroundColor: colors.background }]}>
+          <ThemedText style={[styles.permissionPatternText, { color: colors.textSecondary }]}>
+            $ {command}
+          </ThemedText>
+        </View>
+      )}
+
+      <View style={styles.permissionActions}>
+        <Pressable
+          style={[styles.permissionButton, { backgroundColor: '#34C759' }]}
+          onPress={() => handleReply('once')}
+          disabled={submitting}>
+          <ThemedText style={styles.permissionButtonText}>Once</ThemedText>
+        </Pressable>
+        <Pressable
+          style={[styles.permissionButton, { backgroundColor: '#007AFF' }]}
+          onPress={() => handleReply('always')}
+          disabled={submitting}>
+          <ThemedText style={styles.permissionButtonText}>Always</ThemedText>
+        </Pressable>
+        <Pressable
+          style={[styles.permissionButton, { backgroundColor: '#FF3B30' }]}
+          onPress={() => handleReply('reject')}
+          disabled={submitting}>
+          <ThemedText style={styles.permissionButtonText}>Deny</ThemedText>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function SessionScreen() {
   const { id } = useLocalSearchParams();
   const sessionId = id as string;
@@ -376,7 +445,7 @@ export default function SessionScreen() {
     }),
   });
 
-  const { messages, isLoading: messagesLoading, sessionStatus, statusQueryKey } = useStreamingMessages(
+  const { messages, isLoading: messagesLoading, sessionStatus, statusQueryKey, pendingPermissions, permissionsQueryKey } = useStreamingMessages(
     opencodeClient!,
     sessionId
   );
@@ -555,6 +624,17 @@ export default function SessionScreen() {
             ))}
           </ScrollView>
           <View style={styles.inputContainer}>
+            {pendingPermissions.length > 0 && (
+              <PermissionOverlay
+                permission={pendingPermissions[0]}
+                client={opencodeClient!}
+                onReplied={() => {
+                  queryClient.setQueryData(permissionsQueryKey, (old: PermissionRequest[] | undefined) =>
+                    (old ?? []).filter((p) => p.id !== pendingPermissions[0].id)
+                  );
+                }}
+              />
+            )}
             {isSessionBusy && (
               <View style={[styles.loadingBar, { backgroundColor: colors.backgroundElement }]}>
                 <LoadingIndicator color="#007AFF" />
@@ -875,6 +955,41 @@ const styles = StyleSheet.create({
   submitButtonText: {
     color: '#ffffff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Permission overlay
+  permissionSheet: {
+    borderRadius: 16,
+    padding: Spacing.three,
+    marginBottom: Spacing.two,
+    gap: Spacing.two,
+  },
+  permissionHeader: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  permissionPatterns: {
+    borderRadius: 10,
+    padding: Spacing.three,
+  },
+  permissionPatternText: {
+    fontFamily: Fonts.mono,
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  permissionActions: {
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  permissionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: Spacing.two,
+    alignItems: 'center',
+  },
+  permissionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
     fontWeight: '600',
   },
 });

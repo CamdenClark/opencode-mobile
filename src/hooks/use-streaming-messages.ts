@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { sessionMessagesOptions, sessionStatusOptions } from '@/api/@tanstack/react-query.gen';
+import { sessionMessagesOptions, sessionStatusOptions, permissionListOptions, permissionListQueryKey } from '@/api/@tanstack/react-query.gen';
 import type { Client } from '@/api/client/types.gen';
+import type { PermissionRequest } from '@/api/types.gen';
 
 export function useStreamingMessages(
   client: Client,
@@ -37,10 +38,19 @@ export function useStreamingMessages(
     refetchInterval: isIdle ? false : 1000,
   });
 
+  const permissionsQuery = useQuery({
+    ...permissionListOptions({ client }),
+    refetchInterval: isIdle ? false : 1000,
+    select: (data: PermissionRequest[]) =>
+      data?.filter((p) => p.sessionID === sessionId) ?? [],
+  });
+
   return {
     messages: messagesQuery.data,
     isLoading: messagesQuery.isLoading,
     sessionStatus: statusQuery.data?.[sessionId] ?? { type: 'idle' as const },
     statusQueryKey: sessionStatusOptions({ client }).queryKey,
+    pendingPermissions: permissionsQuery.data ?? [],
+    permissionsQueryKey: permissionListQueryKey({ client }),
   };
 }
