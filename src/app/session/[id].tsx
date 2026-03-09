@@ -185,6 +185,107 @@ function BashToolCallItem({ part }: { part: ToolPart }) {
   );
 }
 
+function FileToolCallItem({ part }: { part: ToolPart }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const colors = useColors();
+  const status = part.state.status;
+  const isError = status === 'error';
+  const isRunning = status === 'running';
+  const isWrite = part.tool === 'write';
+
+  const input = part.state.input as any;
+  const filePath = input?.file_path || '';
+  const fileName = filePath.split('/').pop() || filePath;
+  const writeContent = input?.content || '';
+  const output = ('output' in part.state && part.state.output) ? part.state.output : '';
+  const error = ('error' in part.state && part.state.error) ? part.state.error : '';
+
+  // For read: output is file content. For write: input.content is what was written.
+  const fileContent = isWrite ? writeContent : output;
+
+  const accentColor = isError ? '#FF3B30' : isRunning ? '#FF9500' : '#34C759';
+  const icon = isWrite ? 'document-text' : 'document-outline';
+
+  return (
+    <>
+      <Pressable
+        style={[styles.bashTool, { backgroundColor: colors.backgroundElement }]}
+        onPress={() => setDrawerOpen(true)}>
+        <View style={styles.bashToolCommandRow}>
+          <Ionicons name={icon as any} size={14} color={accentColor} />
+          <ThemedText
+            type="small"
+            style={[styles.bashToolCommand, { fontFamily: Fonts.mono }]}
+            numberOfLines={1}>
+            {isWrite ? `write ${fileName}` : fileName}
+          </ThemedText>
+        </View>
+        {isRunning && <ActivityIndicator size="small" color="#FF9500" />}
+      </Pressable>
+
+      <Modal
+        visible={drawerOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setDrawerOpen(false)}>
+        <View style={[styles.bashDrawerContainer, { backgroundColor: colors.background }]}>
+          <View style={[styles.bashDrawerHeader, { borderBottomColor: colors.border }]}>
+            <Ionicons name={icon as any} size={18} color={accentColor} />
+            <ThemedText style={styles.bashDrawerTitle}>{isWrite ? 'Write' : 'Read'}</ThemedText>
+            <Pressable onPress={() => setDrawerOpen(false)} style={styles.bashDrawerClose}>
+              <Ionicons name="close" size={22} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+
+          <View style={[styles.bashDrawerCommandBlock, { backgroundColor: colors.backgroundElement }]}>
+            <ThemedText type="small" style={[styles.bashDrawerCommandLabel, { color: colors.textSecondary }]}>
+              File
+            </ThemedText>
+            <ThemedText style={[styles.bashDrawerCommandText, { fontFamily: Fonts.mono }]} numberOfLines={2}>
+              {filePath}
+            </ThemedText>
+          </View>
+
+          {error ? (
+            <View style={styles.bashDrawerOutputSection}>
+              <ThemedText type="small" style={[styles.bashDrawerOutputLabel, { color: '#FF3B30' }]}>
+                Error
+              </ThemedText>
+              <ScrollView
+                style={[styles.bashDrawerOutputScroll, { backgroundColor: colors.backgroundElement }]}
+                showsVerticalScrollIndicator>
+                <ThemedText style={[styles.bashDrawerOutputText, { fontFamily: Fonts.mono, color: '#FF3B30' }]}>
+                  {error}
+                </ThemedText>
+              </ScrollView>
+            </View>
+          ) : fileContent ? (
+            <View style={styles.bashDrawerOutputSection}>
+              <ThemedText type="small" style={[styles.bashDrawerOutputLabel, { color: colors.textSecondary }]}>
+                Content
+              </ThemedText>
+              <ScrollView
+                style={[styles.bashDrawerOutputScroll, { backgroundColor: colors.backgroundElement }]}
+                showsVerticalScrollIndicator>
+                <ThemedText style={[styles.bashDrawerOutputText, { fontFamily: Fonts.mono }]}>
+                  {fileContent}
+                </ThemedText>
+              </ScrollView>
+            </View>
+          ) : isRunning ? (
+            <View style={styles.bashDrawerRunning}>
+              <ActivityIndicator size="small" color="#FF9500" />
+              <ThemedText type="small" style={{ color: colors.textSecondary }}>
+                {isWrite ? 'Writing...' : 'Reading...'}
+              </ThemedText>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </>
+  );
+}
+
 function ToolCallItem({ part }: { part: ToolPart }) {
   const [expanded, setExpanded] = useState(false);
   const colors = useColors();
@@ -417,6 +518,9 @@ function MessageItem({ message, client }: MessageItemProps) {
           }
           if (toolPart.tool === 'bash') {
             return <BashToolCallItem key={part.id} part={toolPart} />;
+          }
+          if (toolPart.tool === 'read' || toolPart.tool === 'write') {
+            return <FileToolCallItem key={part.id} part={toolPart} />;
           }
           return <ToolCallItem key={part.id} part={toolPart} />;
         }
